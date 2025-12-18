@@ -1,76 +1,90 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import time
 
-# ----------------------------
-# SETUP DRIVER
-# ----------------------------
-options = webdriver.ChromeOptions()
-options.add_argument("--start-maximized")
+# ---------------------------
+# 1️⃣ Create WebDriver FIRST
+# ---------------------------
+options = Options()
+options.add_argument("--headless")  # remove if you want to see browser
+options.add_argument("--disable-gpu")
+options.add_argument("--no-sandbox")
 
-browser = webdriver.Chrome(
+driver = webdriver.Chrome(
     service=Service(ChromeDriverManager().install()),
     options=options
 )
 
-wait = WebDriverWait(browser, 20)
+# ---------------------------
+# 2️⃣ Open website
+# ---------------------------
+url = "https://www.sunbeaminfo.in/internship"
+driver.get(url)
 
-# ----------------------------
-# OPEN WEBSITE
-# ----------------------------
-browser.get("https://www.sunbeaminfo.in/")
-time.sleep(3)
+# ---------------------------
+# 3️⃣ Create WebDriverWait AFTER driver
+# ---------------------------
+wait = WebDriverWait(driver, 15)
 
-# ----------------------------
-# CLICK INTERNSHIPS LINK
-# ----------------------------
-wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Internships"))).click()
+print("Page Title:", driver.title)
 
-# ✅ WAIT UNTIL INTERNSHIP PAGE LOADS
-wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-time.sleep(2)
+# =================================================
+# 4️⃣ Internship Programs Table
+# =================================================
+print("\n📌 Internship Programs:")
 
-# ----------------------------
-# STEP-BY-STEP SCROLL (IMPORTANT)
-# ----------------------------
-for _ in range(6):
-    browser.execute_script("window.scrollBy(0, 600);")
-    time.sleep(1)
-
-# ----------------------------
-# WAIT & CLICK TOGGLE BUTTON
-# ----------------------------
-plus_button = wait.until(
-    EC.element_to_be_clickable((By.XPATH, "//a[@href='#collapseSix']"))
+tables = wait.until(
+    EC.presence_of_all_elements_located((By.TAG_NAME, "table"))
 )
 
-browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", plus_button)
-time.sleep(1)
-plus_button.click()
-time.sleep(3)
+program_table = tables[0]
+rows = program_table.find_elements(By.TAG_NAME, "tr")
 
-# ----------------------------
-# SCRAPE INTERNSHIP DETAILS
-# ----------------------------
-internships = browser.find_elements(By.CLASS_NAME, "course-box")
+for row in rows[1:]:
+    cols = row.find_elements(By.TAG_NAME, "td")
+    if len(cols) >= 4:
+        print(
+            f"Technology: {cols[0].text}\n"
+            f"Objective: {cols[1].text}\n"
+            f"Prerequisite: {cols[2].text}\n"
+            f"Learning: {cols[3].text}\n"
+            "----------------------------"
+        )
 
-print("\n📌 Sunbeam Internship & Batch Details:\n")
+# =================================================
+# 5️⃣ Internship Batch Schedule (FIXED)
+# =================================================
+print("\n📌 Internship Batch Schedule:")
 
-for internship in internships:
-    title = internship.find_element(By.TAG_NAME, "h3").text
-    duration = internship.find_element(By.CLASS_NAME, "duration").text
-    batch = internship.find_element(By.CLASS_NAME, "batch").text
+batch_table = None
 
-    print("--------------------------------------")
-    print("Internship Title :", title)
-    print("Duration         :", duration)
-    print("Batch Details    :", batch)
+for table in tables:
+    rows = table.find_elements(By.TAG_NAME, "tr")
+    if len(rows) > 1:
+        cols = rows[1].find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 7:
+            batch_table = table
+            break
 
-# ----------------------------
-# CLOSE BROWSER
-# ----------------------------
-browser.quit()
+if batch_table is None:
+    print("❌ Batch schedule table not found")
+else:
+    batch_rows = batch_table.find_elements(By.TAG_NAME, "tr")
+    for row in batch_rows[1:]:
+        cols = row.find_elements(By.TAG_NAME, "td")
+        if len(cols) >= 7:
+            print(
+                f"{cols[0].text} | {cols[1].text} | {cols[2].text} | "
+                f"{cols[3].text} to {cols[4].text} | "
+                f"{cols[5].text} | {cols[6].text}"
+            )
+
+# ---------------------------
+# 6️⃣ Close browser
+# ---------------------------
+driver.quit()
+
